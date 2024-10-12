@@ -66,7 +66,7 @@ def init_repo():
 
 if __name__ == '__main__':
 
-    adv_repo = dict()#init_repo()
+    adv_repo = init_repo()
 
     while True:
         run_searches(adv_repo, searches)
