@@ -1,8 +1,23 @@
+from advertisement import Advertisement, adv_to_tuple, tuple_to_adv
 from immobiliare import ImmobiliareSearch
 from selenium import webdriver
 import webbrowser
 from desktop_notifier import DesktopNotifier, Button, DEFAULT_SOUND
+from dataclasses import fields
 import asyncio
+import time
+import sqlite3
+
+SEC_BETWEEN_SEARCHES = 2
+SEC_BETWEEN_RUNS = 10
+
+con = sqlite3.connect("advertisement.db")
+cur = con.cursor()
+
+cur.execute("""
+    CREATE TABLE IF NOT EXISTS advertisements (title,website,price,link PRIMARY KEY,size,floor,metadata,dt,search_name)
+    """)
+con.commit()
 
 options = webdriver.FirefoxOptions()
 options.headless = False
@@ -15,6 +30,8 @@ immo_roma_sud_metro_B = "https://www.immobiliare.it/affitto-case/roma/?criterio=
 immo_roma_metro_C = "https://www.immobiliare.it/affitto-case/roma/?criterio=data&ordine=desc&prezzoMinimo=600&prezzoMassimo=1100&superficieMinima=40&idMZona[]=10150&idMZona[]=10164&idQuartiere[]=10809&idQuartiere[]=12732&idQuartiere[]=12765&idQuartiere[]=10855&idQuartiere[]=11433"
 immo_zone_studentesche = "https://www.immobiliare.it/affitto-case/roma/?criterio=data&ordine=desc&prezzoMinimo=600&prezzoMassimo=1100&superficieMinima=40&idMZona[]=10150&idMZona[]=10163&idMZona[]=10148&idQuartiere[]=10809&idQuartiere[]=10806&idQuartiere[]=10851&idQuartiere[]=10847#activeImage-1580247085"
 
+# idea_roma_sud_metro_A = "https://www.idealista.it/aree/affitto-case/con-prezzo_1100,prezzo-min_800,dimensione_40/?ordine=pubblicazione-desc&shape=%28%28wxt%7EF%7B_hkAki%40um%40p%5Cu%7C%40nt%40icBp%5CvBbn%40yQ%7EPcWkWgYxCio%40b%5CcP%7ERef%40pNoaAh%7B%40%7BCrVzh%40gaCbjGqX%7CdBcx%40pd%40or%40r%40%29%29"
+
 searches = [
     ImmobiliareSearch(driver, "Roma Nord - Metro A", immo_roma_nord_metro_A),
     ImmobiliareSearch(driver, "Roma Sud - Metro A", immo_roma_sud_metro_A),
@@ -23,6 +40,11 @@ searches = [
     ImmobiliareSearch(driver, "Metro C", immo_roma_metro_C),
     ImmobiliareSearch(driver, "Zone Studentesche", immo_zone_studentesche)
 ]
+
+
+notifier = DesktopNotifier(
+    app_name="Real Estate Bot",
+)
 
 
 async def send_notification(notifier, adv):
@@ -39,21 +61,28 @@ async def send_notification(notifier, adv):
     )
 
 
+def notification_filter(adv: Advertisement) -> bool:
+    return True
+
+
 def run_searches(adv_repo, searches):
     for search in searches:
         advs = search.search()
         for adv in advs:
             if adv.link not in adv_repo:
                 adv_repo[adv.link] = adv
-                asyncio.run(send_notification(notifier, adv))
 
+                if notification_filter(adv):
+                    asyncio.run(send_notification(notifier, adv))
 
-notifier = DesktopNotifier(
-    app_name="Real Estate Bot",
-)
-
+        time.sleep(SEC_BETWEEN_SEARCHES)
 
 def init_repo():
+    if cur.execute(f"SELECT * FROM advertisements").fetchone() is not None:
+        print("Loading Repo from DB...")
+        return load_repo_from_db()
+
+    print("Initialising a New Repo...")
     repository = dict()
 
     for search in searches:
@@ -64,12 +93,30 @@ def init_repo():
     return repository
 
 
-if __name__ == '__main__':
+def load_repo_from_db():
+    advs = map(tuple_to_adv, cur.execute(f"SELECT * FROM advertisements").fetchall())
+    return {adv.link: adv for adv in advs}
 
+
+def update_db(adv_repository):
+    headers = ','.join(f.name for f in fields(Advertisement))
+    placeholders = ','.join(['?'] * len(fields(Advertisement)))
+
+    for link, adv in adv_repository.items():
+        cur.execute(f"SELECT * FROM advertisements WHERE link=?", (link, ))
+        if cur.fetchone() is None:
+            cur.execute(f"INSERT INTO advertisements ({headers}) VALUES ({placeholders})", adv_to_tuple(adv))
+    con.commit()
+
+
+if __name__ == '__main__':
     adv_repo = init_repo()
+    update_db(adv_repo)
 
     while True:
+        print("Starting new set of runs...", end=" ")
         run_searches(adv_repo, searches)
-        break
+        print("Done.")
+        time.sleep(SEC_BETWEEN_RUNS)
 
-    driver.close()
+    # driver.close()

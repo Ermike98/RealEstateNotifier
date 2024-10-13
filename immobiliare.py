@@ -5,6 +5,7 @@ import time
 from bs4 import BeautifulSoup
 
 
+
 def floor_str_to_num(floor_str: str) -> float:
     floor_str = floor_str.lower()
     if floor_str == "t" or floor_str == "r":
@@ -72,7 +73,7 @@ class ImmobiliareSearch(Search):
         adv_info_soup = adv_soup.find("div", "nd-mediaObject__content in-listingCardPropertyContent")
 
         price_str = adv_info_soup.find("div", "in-listingCardPrice").string
-        adv_price = float(price_str.split()[1].split("/")[0])
+        adv_price = float(price_str.split()[1].split("/")[0].replace(".", ""))
 
         card_title = adv_info_soup.find("a", "in-listingCardTitle")
         adv_link = card_title["href"]
@@ -95,11 +96,9 @@ class ImmobiliareSearch(Search):
         time.sleep(0.5)
         content = self.__driver.page_source
 
-        with open("test_immo.html", "w", encoding="utf-8") as f:
-            f.write(content)
+        # with open("test_immo.html", "w", encoding="utf-8") as f:
+        #     f.write(content)
 
         soup = BeautifulSoup(content, 'html.parser')
         advs_soup = soup.find_all("li", "nd-list__item in-searchLayoutListItem")
         return list(map(self.__parse_adv, advs_soup))
-
-
