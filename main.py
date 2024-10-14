@@ -77,6 +77,7 @@ def run_searches(adv_repo, searches):
 
         time.sleep(SEC_BETWEEN_SEARCHES)
 
+
 def init_repo():
     if cur.execute(f"SELECT * FROM advertisements").fetchone() is not None:
         print("Loading Repo from DB...")

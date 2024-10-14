@@ -5,7 +5,6 @@ import time
 from bs4 import BeautifulSoup
 
 
-
 def floor_str_to_num(floor_str: str) -> float:
     floor_str = floor_str.lower()
     if floor_str == "t" or floor_str == "r":
