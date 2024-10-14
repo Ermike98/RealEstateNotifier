@@ -1,2 +1,2 @@
 # RealEstateNotifier
-A scraper to notify when new advertisement are published
+A scraper to notify when new advertisements are published!
